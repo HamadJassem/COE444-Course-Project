@@ -204,16 +204,16 @@
 
 
 <div class="input-group mb-3">
-    <input type="text" class="form-control" placeholder="Hashtag, Keyword, Any Search" aria-label="Recipient's username" aria-describedby="button-addon2">
+    <input type="text" id="keyword" class="form-control" placeholder="Hashtag, Keyword, Any Search" aria-label="Recipient's username" aria-describedby="button-addon2">
 </div>
-<p style="text-align: center;"><input type="text" placeholder="Number of Tweets"></p>
+<p style="text-align: center;"><input id="tweetnum" type="text" placeholder="Number of Tweets"></p>
 <div style="margin: auto;">
     <p>Enable Date: <input type="checkbox" name="chooseDate" id="chooseDate"></p>
     <div id="datefield" style="display:none;">
         <p>From: <input type="date" id="from" name="from"></p>
         <p>To:  <input type="date" id="to" name="to"></p>
     </div>
-<p style="text-align: center;"><button class="btn btn-outline-secondary" type="button" id="button-addon2">Search</button></p>
+<p style="text-align: center;"><button class="btn btn-outline-secondary" type="button" id="search">Search</button></p>
     
    
 </div>
@@ -232,7 +232,7 @@
     <div class="menu" id="menu">
       
       <input type="radio" id="radio-0" name="menu" checked />
-          <label class="tab" for="radio-0">
+          <label class="tab" for="radio-0" id="radio0">
         <div class="item">
             <i style="font-size:30px; font-weight:bold; color:white;" class="fa fa-smile-o" aria-hidden="true"></i>
 
@@ -241,7 +241,7 @@
       </label>
       
       <input type="radio" id="radio-1" name="menu" />
-          <label class="tab" for="radio-1">
+          <label class="tab" for="radio-1" id="radio1">
         <div class="item">
             <i style="font-size:30px; font-weight:bold; color:white;" class="fa fa-meh-o" aria-hidden="true"></i>
           <div class="item-title">Neutral</div>
@@ -249,7 +249,7 @@
       </label>
       
       <input type="radio" id="radio-2" name="menu" />
-          <label class="tab" for="radio-2">
+          <label class="tab" for="radio-2" id="radio2">
         <div class="item">
             <i style="font-size:30px; font-weight:bold; color:white;" class="fa fa-frown-o" aria-hidden="true"></i>
           <div class="item-title">Negative</div>
@@ -257,7 +257,7 @@
       </label>
       
       <input type="radio" id="radio-3" name="menu" />
-          <label class="tab" for="radio-3">
+          <label class="tab" for="radio-3" id="radio3">
         <div class="item">
             <i style="font-size:30px; font-weight:bold; color:white;" class="fa fa-balance-scale" aria-hidden="true"></i>
           <div class="item-title">Crime Classification</div>
@@ -270,8 +270,18 @@
   
     </div>
   </div>
+  <div class="container">
+    <div class="tweetcontent row row-cols-1 row-cols-md-3">
+        
+    </div>
+  </div>
+  
 <script>
-    
+    var pos = [];
+    var neg = [];
+    var neut = [];
+    var hate = [];
+
     (async () => {
 
 const topology = await fetch(
@@ -279,17 +289,31 @@ const topology = await fetch(
 ).then(response => response.json());
 
 
-let du = 10;
+let du = 1;
 const data = [];
 let keyw = '#EidMubarak'
 await $.getJSON('/allpolarity', {
-        items: 5,
+        items: 1,
         keyword: keyw
       }, function(res) {
-
-       for(var key in res){
-           data.push([key, res[key]])
+        console.log(res)
+       for(var key in res.plot){
+           data.push([key, res.plot[key]])
        }
+       $('.tweetcontent').empty()
+       for(var key in res.pos){
+          pos.push(res.pos[key])
+       }
+       for(var key in res.neg){
+          neg.push(res.neg[key])
+       }
+       for(var key in res.neut){
+          neut.push(res.neut[key])
+       }
+       for(var key in res.hate){
+          hate.push(res.hate[key])
+       }
+
 })
 
 // Prepare demo data. The data is joined to map using value of 'hc-key'
@@ -345,6 +369,148 @@ Highcharts.mapChart('container', {
 });
 
 })();
+$('#radio0').click(function(){
+    $('.tweetcontent').empty();
+    
+    var c = pos.reduce((a, arr) => a.set(arr[0], Math.max((a.get(arr[0]) || arr[1]), arr[1])), new Map());
+    var b = Array.from(c)
+    for(var i = 0; i<b.length; i++)
+    {
+        $('.tweetcontent').append('<div class="col-4" style="margin-top: 20px;"><div class="card text-white bg-success h-100 " style="max-width: 18rem;"><div class="card-header">Tweet</div><div class="card-body"><h5 class="card-title">Polarity: '+b[i][1]+'</h5><p class="card-text">'+b[i][0]+'</p></div></div></div>')
+       
+    }
+})
+$('#radio1').click(function(){
+    $('.tweetcontent').empty();
+    
+    var c = neut.reduce((a, arr) => a.set(arr[0], Math.max((a.get(arr[0]) || arr[1]), arr[1])), new Map());
+    var b = Array.from(c)
+    for(var i = 0; i<b.length; i++)
+    {
+        $('.tweetcontent').append('<div class="col-4" style="margin-top: 20px;"><div class="card text-white bg-secondary h-100 " style="max-width: 18rem;"><div class="card-header">Tweet</div><div class="card-body"><h5 class="card-title">Polarity: '+b[i][1]+'</h5><p class="card-text">'+b[i][0]+'</p></div></div></div>')
+       
+    }
+})
+$('#radio2').click(function(){
+    $('.tweetcontent').empty();
+    var c = neg.reduce((a, arr) => a.set(arr[0], Math.max((a.get(arr[0]) || arr[1]), arr[1])), new Map());
+    var b = Array.from(c)
+    for(var i = 0; i<b.length; i++)
+    {
+        $('.tweetcontent').append('<div class="col-4" style="margin-top: 20px;"><div class="card text-white bg-danger h-100 " style="max-width: 18rem;"><div class="card-header">Tweet</div><div class="card-body"><h5 class="card-title">Polarity: '+b[i][1]+'</h5><p class="card-text">'+b[i][0]+'</p></div></div></div>')
+       
+    }
+})
+$('#radio3').click(function(){
+    $('.tweetcontent').empty();
+    const b = Object.values(hate.reduce((acc, el) => {
+        // Create a key based on what we consider a duplicate.
+        let key = el.join("-");
+        acc[key] = acc[key] || el;
+        return acc;
+    }, {}));
+    for(var i = 0; i<b.length; i++)
+    {
+        $('.tweetcontent').append('<div class="col-4" style="margin-top: 20px;"><div class="card text-white bg-warning h-100 " style="max-width: 18rem;"><div class="card-header">Tweet</div><div class="card-body"><h5 class="card-title">Type: '+b[i][1]+'</h5><p class="card-text">'+b[i][0]+'</p></div></div></div>')
+       
+    }
+})
+$('#search').click(function(){
+    pos.splice(0, pos.length)
+    neg.splice(0, neg.length)
+    neut.splice(0, neut.length)
+    hate.splice(0, hate.length)
+    $("#container").empty();
+    $('#container').append('<div class="loading"></div>');
+
+    (async () => {
+
+    const topology = await fetch(
+        'https://code.highcharts.com/mapdata/countries/ae/ae-all.topo.json'
+    ).then(response => response.json());
+
+
+    let du = parseInt($('#tweetnum').val());
+    const data = [];
+    let keyw = $('#keyword').val()
+    console.log(du);
+    console.log(keyw);
+    await $.getJSON('/allpolarity', {
+            items: 5,
+            keyword: keyw
+        }, function(res) {
+            console.log(res.hate)
+        for(var key in res.plot){
+            data.push([key, res.plot[key]])
+        }
+        for(var key in res.pos){
+          pos.push(res.pos[key])
+       }
+       for(var key in res.neg){
+          neg.push(res.neg[key])
+       }
+       for(var key in res.neut){
+          neut.push(res.neut[key])
+       }
+       for(var key in res.hate){
+          hate.push(res.hate[key])
+       }
+    })
+
+    // Prepare demo data. The data is joined to map using value of 'hc-key'
+    // property by default. See API docs for 'joinBy' for more info on linking
+    // data and map.
+    // const data = [
+    //     ['ae-az', du], ['ae-du', 11], ['ae-sh', 12], ['ae-rk', 13],
+    //     ['ae-uq', 14], ['ae-fu', 15], ['ae-740', 0], ['ae-aj', 17],
+    //     ['ae-742', 0]
+    // ];
+
+    // Create the chart
+    Highcharts.mapChart('container', {
+        chart: {
+            map: topology
+        },
+
+        title: {
+            text: 'UAE Sentiment Analysis - Keyword: ' + keyw
+        },
+
+        subtitle: {
+            text: 'Source map: <a href="http://code.highcharts.com/mapdata/countries/ae/ae-all.topo.json">United Arab Emirates</a>'
+        },
+
+        mapNavigation: {
+            enabled: true,
+            buttonOptions: {
+                verticalAlign: 'bottom'
+            }
+        },
+
+        colorAxis: {
+            min:-1,
+            max:1,
+            minColor: '#990041',
+            maxColor: '#00ff00',
+        },
+
+        series: [{
+            data: data,
+            name: 'Random data',
+            states: {
+                hover: {
+                    color: '#BADA55'
+                }
+            },
+            dataLabels: {
+                enabled: true,
+                format: '{point.name}'
+            }
+        }]
+    });
+
+    })();
+})
 
 
 $(document).ready(function(){

@@ -9,32 +9,59 @@ from nltk.corpus import stopwords
 import string
 import json
 import asyncio
+import emoji
+import pickle
+from functools import reduce
+import sklearn
+from sklearn.feature_extraction.text import CountVectorizer
 
+pickle_in = open('hatecrimemodel.pickle', 'rb')
+pickle_in2 = open('cv.pickle', 'rb')
+pickle_clf = pickle.load(pickle_in)
+pickle_cv = pickle.load(pickle_in2)
 stemmer = nltk.SnowballStemmer("english")
 stopword=set(stopwords.words('english'))
 
 app = Flask(__name__)
+def cleanOnly(tex):
+        tex = str(tex).lower()
+        tex = re.sub('\[.*?\]', '', tex)
+        tex = re.sub('https?://\S+|www\.\S+', '', tex)
+        tex = re.sub('<.*?>+', '', tex)
+        tex = re.sub('[%s]' % re.escape(string.punctuation), '', tex)
+        tex = re.sub('\n', '', tex)
+        tex = re.sub('\w*\d\w*', '', tex)
+        tex = re.sub("[^a-zA-Z0-9 ]+", '',tex)
+        tex = ''.join(c for c in tex if c not in emoji.UNICODE_EMOJI) #Remove Emojis
+        tex = [word for word in tex.split(' ') if word not in stopword]
+        tex=" ".join(tex)
+        tex = [stemmer.stem(word) for word in tex.split(' ')]
+        tex=" ".join(tex)
+        return tex
 
 def getSentiment(text):
-    def clean(text):
-        text = str(text).lower()
-        text = re.sub('\[.*?\]', '', text)
-        text = re.sub('https?://\S+|www\.\S+', '', text)
-        text = re.sub('<.*?>+', '', text)
-        text = re.sub('[%s]' % re.escape(string.punctuation), '', text)
-        text = re.sub('\n', '', text)
-        text = re.sub('\w*\d\w*', '', text)
-        text = [word for word in text.split(' ') if word not in stopword]
-        text=" ".join(text)
-        text = [stemmer.stem(word) for word in text.split(' ')]
-        text=" ".join(text)
-        return text
-    return TextBlob(clean(text)).sentiment.polarity
+    def clean(tex):
+        tex = str(text).lower()
+        tex = re.sub('\[.*?\]', '', tex)
+        tex = re.sub('https?://\S+|www\.\S+', '', tex)
+        tex = re.sub('<.*?>+', '', tex)
+        tex = re.sub('[%s]' % re.escape(string.punctuation), '', tex)
+        tex = re.sub('\n', '', tex)
+        tex = re.sub('\w*\d\w*', '', tex)
+        tex = re.sub("[^a-zA-Z0-9 ]+", '',tex)
+        tex = ''.join(c for c in tex if c not in emoji.UNICODE_EMOJI) #Remove Emojis
+        tex = [word for word in tex.split(' ') if word not in stopword]
+        tex=" ".join(tex)
+        tex = [stemmer.stem(word) for word in tex.split(' ')]
+        tex=" ".join(tex)
+        return tex
+    return text, TextBlob(clean(text)).sentiment.polarity
 
 def AveragePolarity(tweets):
     if tweets != -1:
         tweets = (dict(json.loads(tweets))['content']).values()
-        return sum(map(getSentiment, tweets))/len(tweets)
+        tweetNsentiment = list(map(getSentiment, tweets))
+        return sum(map(lambda x: x[1], tweetNsentiment))/len(tweets), tweetNsentiment
     else:
         return 0
 
@@ -52,13 +79,65 @@ async def polarities():
     #         {idx: (tweet, polarity) for }
 
     # )
+    du = AveragePolarity(d)
+    sh = AveragePolarity(s)
+    fu = AveragePolarity(f)
+    uq = AveragePolarity(u)
+    az = AveragePolarity(ad)
+    ajj = AveragePolarity(aj)
+    rk = AveragePolarity(r)
+    arr = []
+    if type(du) != int:
+        arr.append(list(du[1]))
+    else:
+        du = [0]
+    if type(sh) != int:
+        arr.append(list(sh[1]))
+    else:
+        sh = [0]
+    if type(fu) != int:
+        arr.append(list(fu[1]))
+    else:
+        fu = [0]
+    if type(uq) != int:
+        arr.append(list(uq[1]))
+    else:
+        uq = [0]
+    if type(az) != int:
+        arr.append(list(az[1]))
+    else:
+        az = [0]
+    if type(ajj) != int:
+        arr.append(list(ajj[1]))
+    else:
+        ajj = [0]
+    if type(rk) != int:
+        arr.append(list(rk[1]))
+    else:
+        rk = [0]
+    arr = reduce(lambda x, y: x+y, arr)
+
+    pos = list(filter(lambda pred: pred[1]>0, arr))
+    neg = list(filter(lambda pred: pred[1]<0, arr))
+    neut = list(filter(lambda pred: pred[1]==0, arr))
+    hateCrime = [ (sample[0], pickle_clf.predict(pickle_cv.transform([cleanOnly(sample[0])]).toarray())[0]) for sample in neg ]
+    #print(hateCrime)
+    
+
+
+
     a = jsonify(
         
-            {'ae-du' : AveragePolarity(d), 'ae-sh' : AveragePolarity(s), 'ae-fu' : AveragePolarity(f), 'ae-uq' : AveragePolarity(u), 'ae-az' : AveragePolarity(ad), 'ae-aj' : AveragePolarity(aj), 'ae-rk' : AveragePolarity(r), 'ae-740':0, 'ae-742':0}
-       
+            {
+                'plot':{'ae-du' : du[0], 'ae-sh' : sh[0], 'ae-fu' : fu[0], 'ae-uq' : uq[0], 'ae-az' : az[0], 'ae-aj' : ajj[0], 'ae-rk' : rk[0], 'ae-740':0, 'ae-742':0},
+                'pos': pos,
+                'neg': neg,
+                'neut': neut,
+                'hate': hateCrime
+            }
 
     )
-    print(a)
+    #print(a)
     return a
 
 
@@ -131,7 +210,7 @@ async def ajman(keyword=None, items=None):
     if not keyword:
         keyword = request.args.get('keyword', "eid", type=str)
     if not items:
-        items = request.args.get('items', 10, type=int)
+        int(items = request.args.get('items', 10, type=int))
     df = pd.DataFrame(itertools.islice(sntwitter.TwitterSearchScraper(
     f'{keyword} lang:en near:"Ajman" within:10km').get_items(), items))[['date', 'content']]
     return df.to_json()
